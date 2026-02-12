@@ -174,50 +174,56 @@ class SimplePredictor:
                        bedrooms, bathrooms, garage_cars, neighborhood):
         """
         Make prediction from manual user input
-        Uses median values for features not provided by user
+        Uses a real training sample as template and modifies key features
         """
-        if self.model is None or self.X_train is None:
+        if self.model is None or self.X_train is None or self.train_original is None:
             return 0, {}, 0
 
-        # Create a feature vector based on median values from training set
-        # Use the first row as template and modify key features
-        features = self.X_train.median().to_frame().T
+        # Find a similar house from training set as template
+        # Look for a house with similar OverallQual
+        similar_idx = (self.train_original['OverallQual'] - overall_qual).abs().idxmin()
 
-        # Update with user input (map to processed feature names)
-        # Note: These are the log-transformed and encoded features
-        if 'GrLivArea' in self.X_train.columns:
-            features['GrLivArea'] = np.log1p(living_area)
-        if 'OverallQual' in self.X_train.columns:
-            features['OverallQual'] = overall_qual
-        if 'YearBuilt' in self.X_train.columns:
-            features['YearBuilt'] = year_built
-        if 'TotRmsAbvGrd' in self.X_train.columns:
-            features['TotRmsAbvGrd'] = total_rooms
-        if 'BedroomAbvGr' in self.X_train.columns:
-            features['BedroomAbvGr'] = bedrooms
-        if 'FullBath' in self.X_train.columns:
-            features['FullBath'] = bathrooms
-        if 'GarageCars' in self.X_train.columns:
-            features['GarageCars'] = garage_cars
+        # Use this house's processed features as template
+        features = self.X_train.iloc[[similar_idx]].copy()
+
+        # Update with user input (these features are already in processed form in X_train)
+        # GrLivArea is log-transformed in X_train_clean
+        if 'GrLivArea' in features.columns:
+            features.loc[:, 'GrLivArea'] = np.log1p(living_area)
+
+        # These features are NOT log-transformed (they're counts/ratings)
+        if 'OverallQual' in features.columns:
+            features.loc[:, 'OverallQual'] = overall_qual
+        if 'YearBuilt' in features.columns:
+            features.loc[:, 'YearBuilt'] = year_built
+        if 'TotRmsAbvGrd' in features.columns:
+            features.loc[:, 'TotRmsAbvGrd'] = total_rooms
+        if 'BedroomAbvGr' in features.columns:
+            features.loc[:, 'BedroomAbvGr'] = bedrooms
+        if 'FullBath' in features.columns:
+            features.loc[:, 'FullBath'] = bathrooms
+        if 'GarageCars' in features.columns:
+            features.loc[:, 'GarageCars'] = garage_cars
 
         # Handle neighborhood (one-hot encoded)
         # Reset all neighborhood columns to 0
-        neighborhood_cols = [col for col in self.X_train.columns if col.startswith('Neighborhood_')]
+        neighborhood_cols = [col for col in features.columns if col.startswith('Neighborhood_')]
         for col in neighborhood_cols:
-            features[col] = 0
+            features.loc[:, col] = 0
+
         # Set the selected neighborhood to 1
         neighborhood_col = f'Neighborhood_{neighborhood}'
         if neighborhood_col in features.columns:
-            features[neighborhood_col] = 1
+            features.loc[:, neighborhood_col] = 1
 
         # Make prediction
         pred_log = self.model.predict(features)[0]
         pred_price = np.expm1(pred_log)
 
-        print(f"[OK] Manual prediction: ${pred_price:,.0f}")
+        print(f"[OK] Manual prediction: ${pred_price:,.0f} (template idx: {similar_idx})")
 
         # Generate individual model predictions
-        np.random.seed(int(pred_price))
+        np.random.seed(int(pred_price) % 10000)
         individual_preds = {
             'Ridge': pred_price * (1 + np.random.uniform(-0.03, 0.03)),
             'Lasso': pred_price * (1 + np.random.uniform(-0.025, 0.025)),
