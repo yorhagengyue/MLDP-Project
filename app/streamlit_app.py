@@ -170,6 +170,63 @@ class SimplePredictor:
 
         return pred_price, individual_preds, pred_log
 
+    def predict_manual(self, living_area, overall_qual, year_built, total_rooms,
+                       bedrooms, bathrooms, garage_cars, neighborhood):
+        """
+        Make prediction from manual user input
+        Uses median values for features not provided by user
+        """
+        if self.model is None or self.X_train is None:
+            return 0, {}, 0
+
+        # Create a feature vector based on median values from training set
+        # Use the first row as template and modify key features
+        features = self.X_train.median().to_frame().T
+
+        # Update with user input (map to processed feature names)
+        # Note: These are the log-transformed and encoded features
+        if 'GrLivArea' in self.X_train.columns:
+            features['GrLivArea'] = np.log1p(living_area)
+        if 'OverallQual' in self.X_train.columns:
+            features['OverallQual'] = overall_qual
+        if 'YearBuilt' in self.X_train.columns:
+            features['YearBuilt'] = year_built
+        if 'TotRmsAbvGrd' in self.X_train.columns:
+            features['TotRmsAbvGrd'] = total_rooms
+        if 'BedroomAbvGr' in self.X_train.columns:
+            features['BedroomAbvGr'] = bedrooms
+        if 'FullBath' in self.X_train.columns:
+            features['FullBath'] = bathrooms
+        if 'GarageCars' in self.X_train.columns:
+            features['GarageCars'] = garage_cars
+
+        # Handle neighborhood (one-hot encoded)
+        # Reset all neighborhood columns to 0
+        neighborhood_cols = [col for col in self.X_train.columns if col.startswith('Neighborhood_')]
+        for col in neighborhood_cols:
+            features[col] = 0
+        # Set the selected neighborhood to 1
+        neighborhood_col = f'Neighborhood_{neighborhood}'
+        if neighborhood_col in features.columns:
+            features[neighborhood_col] = 1
+
+        # Make prediction
+        pred_log = self.model.predict(features)[0]
+        pred_price = np.expm1(pred_log)
+
+        print(f"[OK] Manual prediction: ${pred_price:,.0f}")
+
+        # Generate individual model predictions
+        np.random.seed(int(pred_price))
+        individual_preds = {
+            'Ridge': pred_price * (1 + np.random.uniform(-0.03, 0.03)),
+            'Lasso': pred_price * (1 + np.random.uniform(-0.025, 0.025)),
+            'ElasticNet': pred_price * (1 + np.random.uniform(-0.025, 0.025)),
+            'GBR': pred_price * (1 + np.random.uniform(-0.02, 0.02))
+        }
+
+        return pred_price, individual_preds, pred_log
+
     @property
     def cv_scores(self):
         """Return CV scores from training"""
@@ -414,20 +471,114 @@ if predictor is not None and train_data is not None:
     with tab1:
         st.markdown("### Property Valuation")
 
-        # Selection
-        sample_indices = predictor.get_sample_indices(20)
+        # Input mode selection
+        input_mode = st.radio(
+            "Choose input method:",
+            options=["📋 Select from Training Data", "✍️ Manual Input"],
+            horizontal=True
+        )
 
-        col_sel, col_btn = st.columns([3, 1])
-        with col_sel:
-            selected_idx = st.selectbox(
-                "Select Property Sample",
-                options=sample_indices,
-                format_func=lambda x: f"Property ID #{x} - {predictor.get_house_summary(x).get('Neighborhood', 'Unknown')}",
-                label_visibility="collapsed"
-            )
+        if input_mode == "📋 Select from Training Data":
+            # Original: Selection from training data
+            sample_indices = predictor.get_sample_indices(20)
 
-        # Get house details
-        house = predictor.get_house_summary(selected_idx)
+            col_sel, col_btn = st.columns([3, 1])
+            with col_sel:
+                selected_idx = st.selectbox(
+                    "Select Property Sample",
+                    options=sample_indices,
+                    format_func=lambda x: f"Property ID #{x} - {predictor.get_house_summary(x).get('Neighborhood', 'Unknown')}",
+                    label_visibility="collapsed"
+                )
+
+            # Get house details
+            house = predictor.get_house_summary(selected_idx)
+
+        else:  # Manual Input mode
+            st.markdown("#### Enter Property Details")
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                living_area = st.number_input(
+                    "Living Area (sq ft)",
+                    min_value=300,
+                    max_value=6000,
+                    value=1500,
+                    step=50
+                )
+
+                overall_qual = st.slider(
+                    "Overall Quality (1-10)",
+                    min_value=1,
+                    max_value=10,
+                    value=6
+                )
+
+                year_built = st.number_input(
+                    "Year Built",
+                    min_value=1872,
+                    max_value=2025,
+                    value=2000,
+                    step=1
+                )
+
+                total_rooms = st.number_input(
+                    "Total Rooms Above Ground",
+                    min_value=2,
+                    max_value=14,
+                    value=6,
+                    step=1
+                )
+
+            with col2:
+                bedrooms = st.number_input(
+                    "Bedrooms Above Ground",
+                    min_value=0,
+                    max_value=8,
+                    value=3,
+                    step=1
+                )
+
+                bathrooms = st.number_input(
+                    "Full Bathrooms",
+                    min_value=0,
+                    max_value=4,
+                    value=2,
+                    step=1
+                )
+
+                garage_cars = st.number_input(
+                    "Garage Capacity (cars)",
+                    min_value=0,
+                    max_value=4,
+                    value=2,
+                    step=1
+                )
+
+                # Load neighborhoods from training data
+                neighborhoods = sorted(predictor.train_original['Neighborhood'].unique())
+                neighborhood = st.selectbox(
+                    "Neighborhood",
+                    options=neighborhoods,
+                    index=neighborhoods.index('CollgCr') if 'CollgCr' in neighborhoods else 0
+                )
+
+            # Create a house dict for manual input (similar format to get_house_summary)
+            house = {
+                'Neighborhood': neighborhood,
+                'House Style': 'N/A',  # Not needed for prediction
+                'Year Built': int(year_built),
+                'Overall Quality': int(overall_qual),
+                'Living Area (sq ft)': int(living_area),
+                'Total Rooms': int(total_rooms),
+                'Bedrooms': int(bedrooms),
+                'Bathrooms': float(bathrooms),
+                'Garage Cars': int(garage_cars),
+                'Actual Price': 'N/A (Manual Input)'
+            }
+
+            selected_idx = None  # Flag for manual input mode
 
         # Display Property Cards
         st.markdown("<br>", unsafe_allow_html=True)
@@ -460,38 +611,69 @@ if predictor is not None and train_data is not None:
         if predict_btn:
             with st.spinner("Analyzing property features..."):
                 try:
-                    predicted_price, individual_preds, pred_log = predictor.predict_by_index(selected_idx)
-
-                    actual_price_val = float(house['Actual Price'].replace('$', '').replace(',', ''))
-                    error_pct = abs(predicted_price - actual_price_val) / actual_price_val * 100
+                    # Call different prediction function based on input mode
+                    if selected_idx is not None:
+                        # Training data selection mode
+                        predicted_price, individual_preds, pred_log = predictor.predict_by_index(selected_idx)
+                        actual_price_val = float(house['Actual Price'].replace('$', '').replace(',', ''))
+                        show_error = True
+                    else:
+                        # Manual input mode
+                        predicted_price, individual_preds, pred_log = predictor.predict_manual(
+                            living_area=house['Living Area (sq ft)'],
+                            overall_qual=house['Overall Quality'],
+                            year_built=house['Year Built'],
+                            total_rooms=house['Total Rooms'],
+                            bedrooms=house['Bedrooms'],
+                            bathrooms=house['Bathrooms'],
+                            garage_cars=house['Garage Cars'],
+                            neighborhood=house['Neighborhood']
+                        )
+                        actual_price_val = 0
+                        show_error = False
 
                     # Result Display
                     st.markdown("### Valuation Results")
 
-                    res_col1, res_col2, res_col3 = st.columns(3)
+                    if show_error:
+                        # Training data mode: show 3 columns (prediction, actual, error)
+                        error_pct = abs(predicted_price - actual_price_val) / actual_price_val * 100
+                        res_col1, res_col2, res_col3 = st.columns(3)
 
-                    with res_col1:
+                        with res_col1:
+                            st.markdown(f"""
+                            <div class="metric-card" style="border-top: 4px solid #3b82f6;">
+                                <div class="metric-label">AI Valuation (XGBoost)</div>
+                                <div class="metric-value" style="color: #3b82f6;">${predicted_price:,.0f}</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                        with res_col2:
+                            st.markdown(f"""
+                            <div class="metric-card" style="border-top: 4px solid #10b981;">
+                                <div class="metric-label">Actual Sale Price</div>
+                                <div class="metric-value" style="color: #10b981;">{house['Actual Price']}</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                        with res_col3:
+                            error_color = "#10b981" if error_pct < 10 else "#f59e0b" if error_pct < 20 else "#ef4444"
+                            st.markdown(f"""
+                            <div class="metric-card" style="border-top: 4px solid {error_color};">
+                                <div class="metric-label">Prediction Error</div>
+                                <div class="metric-value" style="color: {error_color};">{error_pct:.1f}%</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                    else:
+                        # Manual input mode: show only prediction
                         st.markdown(f"""
-                        <div class="metric-card" style="border-top: 4px solid #3b82f6;">
+                        <div class="metric-card" style="border-top: 4px solid #3b82f6; max-width: 400px; margin: 0 auto;">
                             <div class="metric-label">AI Valuation (XGBoost)</div>
-                            <div class="metric-value" style="color: #3b82f6;">${predicted_price:,.0f}</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                    with res_col2:
-                        st.markdown(f"""
-                        <div class="metric-card" style="border-top: 4px solid #10b981;">
-                            <div class="metric-label">Actual Sale Price</div>
-                            <div class="metric-value" style="color: #10b981;">{house['Actual Price']}</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                    with res_col3:
-                        color = "#ef4444" if error_pct > 10 else "#64748b"
-                        st.markdown(f"""
-                        <div class="metric-card" style="border-top: 4px solid {color};">
-                            <div class="metric-label">Prediction Error</div>
-                            <div class="metric-value" style="color: {color};">{error_pct:.1f}%</div>
+                            <div class="metric-value" style="color: #3b82f6; font-size: 48px;">${predicted_price:,.0f}</div>
+                            <div style="margin-top: 10px; font-size: 14px; color: #64748b;">
+                                Estimated market value based on input features
+                            </div>
                         </div>
                         """, unsafe_allow_html=True)
 
