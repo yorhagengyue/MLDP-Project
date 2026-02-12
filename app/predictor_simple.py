@@ -4,7 +4,14 @@ import pickle
 import os
 
 class SimplePredictor:
-    def __init__(self, model_path='../models/clean_ensemble.pkl', data_path='../data'):
+    def __init__(self, model_path=None, data_path=None):
+        # Auto-detect paths based on where the script is running
+        if model_path is None:
+            base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            model_path = os.path.join(base, 'models', 'best_model_xgboost.pkl')
+        if data_path is None:
+            base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            data_path = os.path.join(base, 'data')
         """Initialize the predictor with model and data paths"""
         self.model_path = model_path
         self.data_path = data_path

@@ -138,7 +138,8 @@ def load_predictor():
 def load_data():
     """Load original training data for reference"""
     try:
-        train = pd.read_csv('../data/train.csv')
+        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        train = pd.read_csv(os.path.join(base, 'data', 'train.csv'))
         return train
     except:
         return None
