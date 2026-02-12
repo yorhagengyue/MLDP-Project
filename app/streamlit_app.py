@@ -344,9 +344,13 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-@st.cache_resource
-def load_predictor():
-    """Load the predictor with real model and data"""
+@st.cache_resource(ttl=60)  # Cache for 60 seconds only to ensure fresh data
+def load_predictor(_force_version="2026-02-13-v3"):
+    """Load the predictor with real model and data
+
+    Args:
+        _force_version: Version string to force cache refresh (prefix with _ to ignore in cache key)
+    """
     try:
         predictor = SimplePredictor()
         return predictor
@@ -354,8 +358,8 @@ def load_predictor():
         st.error(f"Error loading model: {str(e)}")
         return None
 
-@st.cache_data
-def load_data():
+@st.cache_data(ttl=60)  # Cache for 60 seconds only
+def load_data(_force_version="2026-02-13-v3"):
     """Load clean training data for market statistics (matches X_train_clean)"""
     try:
         # Try to load train_clean.csv first (preferred)
