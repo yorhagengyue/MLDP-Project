@@ -49,50 +49,25 @@ class SimplePredictor:
     def _load_data(self):
         """Load training data for sampling"""
         try:
-            # DEBUG: Print current directory structure to logs
-            print(f"Current working directory: {os.getcwd()}")
-            print(f"Files in current dir: {os.listdir('.')}")
-            
-            # Try multiple path combinations
-            possible_paths = [
-                'data/X_train_clean.csv',
-                '../data/X_train_clean.csv',
-                os.path.join(os.path.dirname(__file__), '../data/X_train_clean.csv'),
-                '/mount/src/mldp-project/data/X_train_clean.csv',
-                '/app/mldp-project/data/X_train_clean.csv'
-            ]
-            
-            x_train_path = None
-            for p in possible_paths:
-                if os.path.exists(p):
-                    x_train_path = p
-                    break
-            
-            if x_train_path:
-                self.X_train = pd.read_csv(x_train_path)
-                print(f"Loaded X_train from: {x_train_path}")
-            else:
-                print("Could not find X_train_clean.csv in any expected location")
-            
-            # Same for train.csv
-            possible_train_paths = [
-                'data/train.csv',
-                '../data/train.csv',
-                os.path.join(os.path.dirname(__file__), '../data/train.csv'),
-                '/mount/src/mldp-project/data/train.csv'
-            ]
-            
+            # Find train.csv
+            train_paths = ['data/train.csv', '../data/train.csv']
             train_path = None
-            for p in possible_train_paths:
+            for p in train_paths:
                 if os.path.exists(p):
                     train_path = p
                     break
                     
-            if train_path:
-                self.train_original = pd.read_csv(train_path)
-                print(f"Loaded train.csv from: {train_path}")
-            else:
+            if not train_path:
                 print("Could not find train.csv")
+                return
+                
+            # Load original data
+            self.train_original = pd.read_csv(train_path)
+            print(f"Loaded {len(self.train_original)} samples from {train_path}")
+            
+            # X_train will be loaded separately via preprocess_for_prediction function
+            # (called after predictor initialization to use caching)
+            self.X_train = None
                 
         except Exception as e:
             print(f"Error loading data: {str(e)}")
@@ -334,18 +309,69 @@ def load_predictor():
 def load_data():
     """Load original training data for reference"""
     try:
-        # Try relative path first
         if os.path.exists('data/train.csv'):
             return pd.read_csv('data/train.csv')
-        # Try absolute path fallback
-        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        return pd.read_csv(os.path.join(base, 'data', 'train.csv'))
+        elif os.path.exists('../data/train.csv'):
+            return pd.read_csv('../data/train.csv')
     except:
+        pass
+    return None
+
+@st.cache_data
+def preprocess_for_prediction():
+    """Generate processed features from raw data (on-the-fly preprocessing)"""
+    try:
+        # Load raw data
+        train_path = 'data/train.csv' if os.path.exists('data/train.csv') else '../data/train.csv'
+        test_path = 'data/test.csv' if os.path.exists('data/test.csv') else '../data/test.csv'
+        
+        train = pd.read_csv(train_path)
+        test = pd.read_csv(test_path)
+        
+        ntrain = train.shape[0]
+        y_train = train['SalePrice'].copy()
+        all_data = pd.concat([train, test], sort=False).reset_index(drop=True)
+        all_data.drop(['Id', 'SalePrice'], axis=1, inplace=True)
+        
+        # Basic cleaning
+        high_missing = ['PoolQC', 'MiscFeature', 'Alley', 'Fence']
+        for col in high_missing:
+            if col in all_data.columns:
+                all_data.drop(col, axis=1, inplace=True)
+        
+        # Fill missing
+        for col in all_data.columns:
+            if all_data[col].isnull().sum() > 0:
+                if all_data[col].dtype == 'object':
+                    all_data[col].fillna('None', inplace=True)
+                else:
+                    all_data[col].fillna(0, inplace=True)
+        
+        # Feature engineering
+        all_data['TotalSF'] = all_data['1stFlrSF'] + all_data['2ndFlrSF'] + all_data['TotalBsmtSF']
+        all_data['HouseAge'] = 2010 - all_data['YearBuilt']
+        
+        # One-hot encode
+        cat_cols = all_data.select_dtypes(include=['object']).columns
+        all_data = pd.get_dummies(all_data, columns=cat_cols, drop_first=True)
+        
+        # Split
+        X_train = all_data.iloc[:ntrain].fillna(0)
+        return X_train
+    except Exception as e:
+        print(f"Preprocessing error: {e}")
         return None
 
 # Load resources
 predictor = load_predictor()
 train_data = load_data()
+
+# Generate processed features (cached)
+if predictor:
+    X_train_processed = preprocess_for_prediction()
+    if X_train_processed is not None:
+        predictor.X_train = X_train_processed
+        print(f"Processed features ready: {X_train_processed.shape}")
 
 if predictor is not None and train_data is not None:
     # Sidebar
