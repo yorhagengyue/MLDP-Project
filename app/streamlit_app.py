@@ -53,13 +53,24 @@ class SimplePredictor:
     def _load_data(self):
         """Load training data - both original (for display) and processed (for prediction)"""
         try:
-            # Load original data for display
-            train_paths = ['data/train.csv', '../data/train.csv']
+            # Load CLEAN data for display (after outlier removal)
+            # This matches X_train_clean indices
+            train_paths = ['data/train_clean.csv', '../data/train_clean.csv']
             for p in train_paths:
                 if os.path.exists(p):
                     self.train_original = pd.read_csv(p)
-                    print(f"[OK] Loaded original data: {self.train_original.shape}")
+                    print(f"[OK] Loaded clean training data: {self.train_original.shape}")
                     break
+
+            # If train_clean.csv not found, fallback to train.csv
+            if self.train_original is None:
+                train_paths_fallback = ['data/train.csv', '../data/train.csv']
+                for p in train_paths_fallback:
+                    if os.path.exists(p):
+                        self.train_original = pd.read_csv(p)
+                        print(f"[WARNING] Using train.csv (indices may not match X_train_clean)")
+                        print(f"[OK] Loaded original data: {self.train_original.shape}")
+                        break
 
             # Load PROCESSED features (X_train_clean.csv) for REAL predictions
             x_train_paths = ['data/X_train_clean.csv', '../data/X_train_clean.csv']
@@ -82,8 +93,13 @@ class SimplePredictor:
             print(f"[ERROR] Error loading data: {str(e)}")
 
     def get_sample_indices(self, n=20):
-        """Get indices of n sample houses"""
-        if self.train_original is not None:
+        """Get indices of n sample houses that exist in processed data"""
+        # Only return indices that exist in both datasets
+        if self.train_original is not None and self.X_train is not None:
+            # Use the smaller dataset size to avoid index out of bounds
+            max_idx = min(len(self.train_original), len(self.X_train))
+            return list(range(min(n, max_idx)))
+        elif self.train_original is not None:
             return list(range(min(n, len(self.train_original))))
         return []
 
@@ -110,6 +126,17 @@ class SimplePredictor:
         """Make REAL prediction using trained XGBoost model"""
         if self.train_original is None:
             return 0, {}, 0
+
+        # Safety check: ensure idx is valid for both datasets
+        if idx >= len(self.train_original):
+            print(f"[ERROR] Index {idx} out of range for train_original")
+            return 0, {}, 0
+
+        if self.X_train is not None and idx >= len(self.X_train):
+            print(f"[ERROR] Index {idx} out of range for X_train")
+            # Use last valid index instead
+            idx = len(self.X_train) - 1
+            print(f"[WARNING] Using index {idx} instead")
 
         # Get actual price for comparison
         actual = self.train_original.iloc[idx]['SalePrice']
@@ -320,9 +347,15 @@ def load_predictor():
 
 @st.cache_data
 def load_data():
-    """Load original training data for market statistics"""
+    """Load clean training data for market statistics (matches X_train_clean)"""
     try:
-        if os.path.exists('data/train.csv'):
+        # Try to load train_clean.csv first (preferred)
+        if os.path.exists('data/train_clean.csv'):
+            return pd.read_csv('data/train_clean.csv')
+        elif os.path.exists('../data/train_clean.csv'):
+            return pd.read_csv('../data/train_clean.csv')
+        # Fallback to train.csv
+        elif os.path.exists('data/train.csv'):
             return pd.read_csv('data/train.csv')
         elif os.path.exists('../data/train.csv'):
             return pd.read_csv('../data/train.csv')
