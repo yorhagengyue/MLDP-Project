@@ -31,7 +31,7 @@ class SimplePredictor:
         self._load_data()
 
     def _load_model(self):
-        """Load the trained XGBoost model"""
+        """Load the trained model"""
         try:
             if os.path.exists(self.model_path):
                 with open(self.model_path, 'rb') as f:
@@ -123,7 +123,7 @@ class SimplePredictor:
         }
 
     def predict_by_index(self, idx):
-        """Make REAL prediction using trained XGBoost model"""
+        """Make REAL prediction using trained model"""
         if self.train_original is None:
             return 0, {}, 0
 
@@ -141,7 +141,7 @@ class SimplePredictor:
         # Get actual price for comparison
         actual = self.train_original.iloc[idx]['SalePrice']
 
-        # REAL XGBoost PREDICTION (not simulation!)
+        # REAL MODEL PREDICTION (not simulation!)
         if self.model is not None and self.X_train is not None and idx < len(self.X_train):
             # Get processed features for this house
             features = self.X_train.iloc[[idx]]
@@ -217,7 +217,7 @@ class SimplePredictor:
         if neighborhood_col in features.columns:
             features.at[0, neighborhood_col] = 1.0
 
-        # Ensure all columns are numeric (required by XGBoost)
+        # Ensure all columns are numeric
         features = features.astype(float)
 
         # Make prediction
@@ -442,12 +442,12 @@ if predictor is not None and train_data is not None:
     # Sidebar
     with st.sidebar:
         st.markdown("### Control Panel")
-        st.markdown("Select a sample property from the dataset to generate a real-time valuation prediction using our trained XGBoost model.")
+        st.markdown("Select a sample property from the dataset to generate a real-time valuation prediction using our trained Gradient Boosting model.")
 
         st.markdown("---")
         st.markdown("### System Status")
 
-        model_status = "Active (XGBoost)" if predictor.model is not None else "Unavailable"
+        model_status = "Active (Gradient Boosting)" if predictor.model is not None else "Unavailable"
         model_color = "#10b981" if predictor.model is not None else "#ef4444"
 
         features_loaded = predictor.X_train is not None
@@ -470,7 +470,7 @@ if predictor is not None and train_data is not None:
         """, unsafe_allow_html=True)
 
         if not features_loaded or predictor.model is None:
-            st.warning("[WARNING] Real predictions unavailable. Please check that X_train_clean.csv and best_model_xgboost.pkl are present.")
+            st.warning("[WARNING] Real predictions unavailable. Please check that X_train_clean.csv and best_model_xgboost.pkl are present in the data/models folders.")
 
         st.markdown("---")
         st.caption("© 2026 HousePrice AI")
@@ -649,7 +649,7 @@ if predictor is not None and train_data is not None:
                         with res_col1:
                             st.markdown(f"""
                             <div class="metric-card" style="border-top: 4px solid #3b82f6;">
-                                <div class="metric-label">AI Valuation (XGBoost)</div>
+                                <div class="metric-label">AI Valuation</div>
                                 <div class="metric-value" style="color: #3b82f6;">${predicted_price:,.0f}</div>
                             </div>
                             """, unsafe_allow_html=True)
@@ -675,7 +675,7 @@ if predictor is not None and train_data is not None:
                         # Manual input mode: show only prediction
                         st.markdown(f"""
                         <div class="metric-card" style="border-top: 4px solid #3b82f6; max-width: 400px; margin: 0 auto;">
-                            <div class="metric-label">AI Valuation (XGBoost)</div>
+                            <div class="metric-label">AI Valuation</div>
                             <div class="metric-value" style="color: #3b82f6; font-size: 48px;">${predicted_price:,.0f}</div>
                             <div style="margin-top: 10px; font-size: 14px; color: #64748b;">
                                 Estimated market value based on input features
@@ -687,7 +687,7 @@ if predictor is not None and train_data is not None:
                     st.markdown("### Model Confidence Analysis")
                     fig, ax = plt.subplots(figsize=(10, 4))
 
-                    models = ['Ridge', 'Lasso', 'ElasticNet', 'GBR', 'Ensemble (XGBoost)']
+                    models = ['Ridge', 'Lasso', 'ElasticNet', 'GBR', 'Ensemble (Best)']
                     values = list(individual_preds.values()) + [predicted_price]
 
                     y_pos = np.arange(len(models))
