@@ -310,24 +310,34 @@ if predictor is not None and train_data is not None:
                     st.markdown("### Model Confidence Analysis")
                     fig, ax = plt.subplots(figsize=(10, 4))
                     
-                    models = list(individual_preds.keys()) + ['Ensemble Final']
+                    # Data for chart
+                    models = ['Ridge', 'Lasso', 'ElasticNet', 'GBR', 'Ensemble (Final)']
                     values = list(individual_preds.values()) + [predicted_price]
-                    colors = ['#e2e8f0'] * len(individual_preds) + ['#3b82f6']
                     
+                    # Create bar chart
                     y_pos = np.arange(len(models))
-                    ax.barh(y_pos, values, align='center', color=colors, height=0.6)
+                    bars = ax.barh(y_pos, values, align='center', color='#cbd5e1', height=0.6)
+                    
+                    # Highlight final ensemble
+                    bars[-1].set_color('#3b82f6')
+                    
+                    # Add actual price line
                     ax.axvline(actual_price_val, color='#ef4444', linestyle='--', label='Actual Price', linewidth=2)
+                    
+                    # Add value labels
+                    for i, v in enumerate(values):
+                        ax.text(v + (max(values)*0.01), i, f"${v:,.0f}", va='center', fontsize=9)
+                    
                     ax.set_yticks(y_pos)
                     ax.set_yticklabels(models)
                     ax.set_xlabel('Valuation ($)')
-                    ax.legend(frameon=False)
+                    ax.legend(loc='lower right', frameon=True)
                     ax.grid(axis='x', alpha=0.2, linestyle='--')
                     
                     # Clean styling
                     ax.spines['top'].set_visible(False)
                     ax.spines['right'].set_visible(False)
                     ax.spines['left'].set_visible(False)
-                    ax.spines['bottom'].set_color('#cbd5e1')
                     
                     st.pyplot(fig)
                     
