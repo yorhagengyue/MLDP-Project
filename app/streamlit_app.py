@@ -202,17 +202,29 @@ if predictor is not None and train_data is not None:
         
         st.markdown("---")
         st.markdown("### System Status")
-        st.markdown("""
+        
+        # Debug info
+        model_status = "Active" if predictor.model is not None else "Failed to Load"
+        model_color = "#10b981" if predictor.model is not None else "#ef4444"
+        
+        data_status = "Connected" if predictor.X_train is not None else "Failed to Load"
+        data_color = "#3b82f6" if predictor.X_train is not None else "#ef4444"
+        
+        st.markdown(f"""
         <div style="background-color: white; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
             <div style="margin-bottom: 8px; font-size: 13px; color: #64748b;">MODEL STATUS</div>
-            <div style="color: #10b981; font-weight: 600; display: flex; align-items: center; gap: 6px;">
-                <div style="width: 8px; height: 8px; background-color: #10b981; border-radius: 50%;"></div>
-                Active (Stacking Ensemble)
+            <div style="color: {model_color}; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                <div style="width: 8px; height: 8px; background-color: {model_color}; border-radius: 50%;"></div>
+                {model_status}
             </div>
-            <div style="margin-top: 12px; margin-bottom: 8px; font-size: 13px; color: #64748b;">DATABASE</div>
-            <div style="color: #3b82f6; font-weight: 600; display: flex; align-items: center; gap: 6px;">
-                <div style="width: 8px; height: 8px; background-color: #3b82f6; border-radius: 50%;"></div>
-                Connected (1,460 Records)
+            <div style="margin-top: 12px; margin-bottom: 8px; font-size: 13px; color: #64748b;">TRAINING DATA</div>
+            <div style="color: {data_color}; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                <div style="width: 8px; height: 8px; background-color: {data_color}; border-radius: 50%;"></div>
+                {data_status}
+            </div>
+            <div style="margin-top: 12px; font-size: 11px; color: #94a3b8;">
+                Path: {predictor.data_path}<br>
+                Model: {predictor.model_path}
             </div>
         </div>
         """, unsafe_allow_html=True)
