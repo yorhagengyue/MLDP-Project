@@ -190,32 +190,35 @@ class SimplePredictor:
         # Update with user input (these features are already in processed form in X_train)
         # GrLivArea is log-transformed in X_train_clean
         if 'GrLivArea' in features.columns:
-            features.at[0, 'GrLivArea'] = np.log1p(living_area)
+            features.at[0, 'GrLivArea'] = float(np.log1p(living_area))
 
         # These features are NOT log-transformed (they're counts/ratings)
         if 'OverallQual' in features.columns:
-            features.at[0, 'OverallQual'] = overall_qual
+            features.at[0, 'OverallQual'] = float(overall_qual)
         if 'YearBuilt' in features.columns:
-            features.at[0, 'YearBuilt'] = year_built
+            features.at[0, 'YearBuilt'] = float(year_built)
         if 'TotRmsAbvGrd' in features.columns:
-            features.at[0, 'TotRmsAbvGrd'] = total_rooms
+            features.at[0, 'TotRmsAbvGrd'] = float(total_rooms)
         if 'BedroomAbvGr' in features.columns:
-            features.at[0, 'BedroomAbvGr'] = bedrooms
+            features.at[0, 'BedroomAbvGr'] = float(bedrooms)
         if 'FullBath' in features.columns:
-            features.at[0, 'FullBath'] = bathrooms
+            features.at[0, 'FullBath'] = float(bathrooms)
         if 'GarageCars' in features.columns:
-            features.at[0, 'GarageCars'] = garage_cars
+            features.at[0, 'GarageCars'] = float(garage_cars)
 
         # Handle neighborhood (one-hot encoded)
         # Reset all neighborhood columns to 0
         neighborhood_cols = [col for col in features.columns if col.startswith('Neighborhood_')]
         for col in neighborhood_cols:
-            features.at[0, col] = 0
+            features.at[0, col] = 0.0
 
         # Set the selected neighborhood to 1
         neighborhood_col = f'Neighborhood_{neighborhood}'
         if neighborhood_col in features.columns:
-            features.at[0, neighborhood_col] = 1
+            features.at[0, neighborhood_col] = 1.0
+
+        # Ensure all columns are numeric (required by XGBoost)
+        features = features.astype(float)
 
         # Make prediction
         pred_log = self.model.predict(features)[0]
