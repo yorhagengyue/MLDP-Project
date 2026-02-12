@@ -456,7 +456,19 @@ if predictor is not None and train_data is not None:
         if predict_btn:
             with st.spinner("Analyzing property features..."):
                 try:
+                    # DEBUG: Show what's being loaded
+                    st.write(f"DEBUG: Selected index = {selected_idx}")
+                    st.write(f"DEBUG: Model loaded = {predictor.model is not None}")
+                    st.write(f"DEBUG: X_train loaded = {predictor.X_train is not None}")
+                    if predictor.X_train is not None:
+                        st.write(f"DEBUG: X_train shape = {predictor.X_train.shape}")
+                        st.write(f"DEBUG: train_original shape = {predictor.train_original.shape if predictor.train_original is not None else None}")
+
                     predicted_price, individual_preds, pred_log = predictor.predict_by_index(selected_idx)
+
+                    st.write(f"DEBUG: pred_log = {pred_log}")
+                    st.write(f"DEBUG: predicted_price = {predicted_price}")
+
                     actual_price_val = float(house['Actual Price'].replace('$', '').replace(',', ''))
                     error_pct = abs(predicted_price - actual_price_val) / actual_price_val * 100
 
