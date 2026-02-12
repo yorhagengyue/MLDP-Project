@@ -27,7 +27,7 @@
     "<br>**AY2025/2026 OCTOBER SEMESTER**\n",
     "\n",
     "**PROJECT PROGRAM CODES**\n",
-    "* Student Name (Matric Number)  : Geng Yue John\n",
+    "* Student Name (Matric Number)  : Geng Yue\n",
     "* Tutorial Group                : TC02\n",
     "* Tutor\t\t\t\t\t\t    : Ms Esther Goh\n",
     "* Submission Date               : 12/02/2026\n"
@@ -1607,7 +1607,7 @@
    "source": [
     "# Fill missing values for categorical features\n",
     "# For these features, NA means 'None' or 'No'\n",
-    "print(\"\\n📌 Step 2: Filling categorical missing values\")\n",
+    "print(\"\\n Step 2: Filling categorical missing values\")\n",
     "\n",
     "categorical_na_features = [\n",
     "    'FireplaceQu', 'GarageType', 'GarageFinish', 'GarageQual', 'GarageCond',\n",

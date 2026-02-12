@@ -470,7 +470,7 @@ if predictor is not None and train_data is not None:
         """, unsafe_allow_html=True)
 
         if not features_loaded or predictor.model is None:
-            st.warning("⚠ Real predictions unavailable. Please check that X_train_clean.csv and best_model_xgboost.pkl are present.")
+            st.warning("[WARNING] Real predictions unavailable. Please check that X_train_clean.csv and best_model_xgboost.pkl are present.")
 
         st.markdown("---")
         st.caption("© 2026 HousePrice AI")
@@ -484,11 +484,11 @@ if predictor is not None and train_data is not None:
         # Input mode selection
         input_mode = st.radio(
             "Choose input method:",
-            options=["📋 Select from Training Data", "✍️ Manual Input"],
+            options=[" Select from Training Data", " Manual Input"],
             horizontal=True
         )
 
-        if input_mode == "📋 Select from Training Data":
+        if input_mode == " Select from Training Data":
             # Original: Selection from training data
             sample_indices = predictor.get_sample_indices(20)
 
@@ -612,7 +612,7 @@ if predictor is not None and train_data is not None:
 
         # Predict Action
         st.markdown("---")
-        predict_btn = st.button("🔮 Generate Valuation", type="primary", use_container_width=True)
+        predict_btn = st.button(" Generate Valuation", type="primary", use_container_width=True)
 
         if predict_btn:
             with st.spinner("Analyzing property features..."):
