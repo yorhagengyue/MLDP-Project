@@ -482,14 +482,11 @@ if predictor is not None and train_data is not None:
             # Original: Selection from training data
             sample_indices = predictor.get_sample_indices(20)
 
-            col_sel, col_btn = st.columns([3, 1])
-            with col_sel:
-                selected_idx = st.selectbox(
-                    "Select Property Sample",
-                    options=sample_indices,
-                    format_func=lambda x: f"Property ID #{x} - {predictor.get_house_summary(x).get('Neighborhood', 'Unknown')}",
-                    label_visibility="collapsed"
-                )
+            selected_idx = st.selectbox(
+                "Select Property Sample",
+                options=sample_indices,
+                format_func=lambda x: f"Property ID #{x} - {predictor.get_house_summary(x).get('Neighborhood', 'Unknown')}"
+            )
 
             # Get house details
             house = predictor.get_house_summary(selected_idx)
@@ -605,8 +602,7 @@ if predictor is not None and train_data is not None:
 
         # Predict Action
         st.markdown("---")
-        with col_btn:
-            predict_btn = st.button("Generate Valuation", type="primary")
+        predict_btn = st.button("🔮 Generate Valuation", type="primary", use_container_width=True)
 
         if predict_btn:
             with st.spinner("Analyzing property features..."):
