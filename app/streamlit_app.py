@@ -183,38 +183,39 @@ class SimplePredictor:
         # Look for a house with similar OverallQual
         similar_idx = (self.train_original['OverallQual'] - overall_qual).abs().idxmin()
 
-        # Use this house's processed features as template
-        features = self.X_train.iloc[[similar_idx]].copy()
+        # Use this house's processed features as template (deep copy to avoid reference issues)
+        features = self.X_train.iloc[[similar_idx]].copy(deep=True)
+        features = features.reset_index(drop=True)
 
         # Update with user input (these features are already in processed form in X_train)
         # GrLivArea is log-transformed in X_train_clean
         if 'GrLivArea' in features.columns:
-            features.loc[:, 'GrLivArea'] = np.log1p(living_area)
+            features.at[0, 'GrLivArea'] = np.log1p(living_area)
 
         # These features are NOT log-transformed (they're counts/ratings)
         if 'OverallQual' in features.columns:
-            features.loc[:, 'OverallQual'] = overall_qual
+            features.at[0, 'OverallQual'] = overall_qual
         if 'YearBuilt' in features.columns:
-            features.loc[:, 'YearBuilt'] = year_built
+            features.at[0, 'YearBuilt'] = year_built
         if 'TotRmsAbvGrd' in features.columns:
-            features.loc[:, 'TotRmsAbvGrd'] = total_rooms
+            features.at[0, 'TotRmsAbvGrd'] = total_rooms
         if 'BedroomAbvGr' in features.columns:
-            features.loc[:, 'BedroomAbvGr'] = bedrooms
+            features.at[0, 'BedroomAbvGr'] = bedrooms
         if 'FullBath' in features.columns:
-            features.loc[:, 'FullBath'] = bathrooms
+            features.at[0, 'FullBath'] = bathrooms
         if 'GarageCars' in features.columns:
-            features.loc[:, 'GarageCars'] = garage_cars
+            features.at[0, 'GarageCars'] = garage_cars
 
         # Handle neighborhood (one-hot encoded)
         # Reset all neighborhood columns to 0
         neighborhood_cols = [col for col in features.columns if col.startswith('Neighborhood_')]
         for col in neighborhood_cols:
-            features.loc[:, col] = 0
+            features.at[0, col] = 0
 
         # Set the selected neighborhood to 1
         neighborhood_col = f'Neighborhood_{neighborhood}'
         if neighborhood_col in features.columns:
-            features.loc[:, neighborhood_col] = 1
+            features.at[0, neighborhood_col] = 1
 
         # Make prediction
         pred_log = self.model.predict(features)[0]
