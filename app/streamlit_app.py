@@ -77,8 +77,12 @@ class SimplePredictor:
             x_train_paths = ['data/X_train_clean.csv', '../data/X_train_clean.csv']
             for p in x_train_paths:
                 if os.path.exists(p):
+                    # Check file size before loading
+                    file_size = os.path.getsize(p) / 1024  # KB
+                    print(f"[DIAGNOSTIC] Loading X_train from {p} ({file_size:.1f} KB)")
                     self.X_train = pd.read_csv(p)
                     print(f"[OK] Loaded processed features: {self.X_train.shape}")
+                    print(f"[DIAGNOSTIC] First row sample: {self.X_train.iloc[0, :5].values}")
                     break
 
             # Load log-transformed target for reference
@@ -146,6 +150,10 @@ class SimplePredictor:
         if self.model is not None and self.X_train is not None and idx < len(self.X_train):
             # Get processed features for this house
             features = self.X_train.iloc[[idx]]
+
+            # DIAGNOSTIC: Print first 5 feature values to verify data integrity
+            print(f"[DIAGNOSTIC] First 5 features for house {idx}: {features.iloc[0, :5].values}")
+            print(f"[DIAGNOSTIC] Feature shape: {features.shape}")
 
             # Real model prediction
             pred_log = self.model.predict(features)[0]
