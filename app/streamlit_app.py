@@ -49,21 +49,50 @@ class SimplePredictor:
     def _load_data(self):
         """Load training data for sampling"""
         try:
-            # Try absolute path first
-            x_train_path = os.path.join(self.data_path, 'X_train_clean.csv')
-            train_orig_path = os.path.join(self.data_path, 'train.csv')
+            # DEBUG: Print current directory structure to logs
+            print(f"Current working directory: {os.getcwd()}")
+            print(f"Files in current dir: {os.listdir('.')}")
             
-            # Fallback to relative path
-            if not os.path.exists(x_train_path):
-                x_train_path = 'data/X_train_clean.csv'
-            if not os.path.exists(train_orig_path):
-                train_orig_path = 'data/train.csv'
-
-            if os.path.exists(x_train_path):
+            # Try multiple path combinations
+            possible_paths = [
+                'data/X_train_clean.csv',
+                '../data/X_train_clean.csv',
+                os.path.join(os.path.dirname(__file__), '../data/X_train_clean.csv'),
+                '/mount/src/mldp-project/data/X_train_clean.csv',
+                '/app/mldp-project/data/X_train_clean.csv'
+            ]
+            
+            x_train_path = None
+            for p in possible_paths:
+                if os.path.exists(p):
+                    x_train_path = p
+                    break
+            
+            if x_train_path:
                 self.X_train = pd.read_csv(x_train_path)
+                print(f"Loaded X_train from: {x_train_path}")
+            else:
+                print("Could not find X_train_clean.csv in any expected location")
             
-            if os.path.exists(train_orig_path):
-                self.train_original = pd.read_csv(train_orig_path)
+            # Same for train.csv
+            possible_train_paths = [
+                'data/train.csv',
+                '../data/train.csv',
+                os.path.join(os.path.dirname(__file__), '../data/train.csv'),
+                '/mount/src/mldp-project/data/train.csv'
+            ]
+            
+            train_path = None
+            for p in possible_train_paths:
+                if os.path.exists(p):
+                    train_path = p
+                    break
+                    
+            if train_path:
+                self.train_original = pd.read_csv(train_path)
+                print(f"Loaded train.csv from: {train_path}")
+            else:
+                print("Could not find train.csv")
                 
         except Exception as e:
             print(f"Error loading data: {str(e)}")
