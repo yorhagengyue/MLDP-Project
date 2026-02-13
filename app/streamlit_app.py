@@ -207,6 +207,9 @@ class SimplePredictor:
             features.at[0, 'GarageCars'] = float(garage_cars)
 
         # Handle neighborhood (one-hot encoded)
+        # Convert all columns to float first to avoid bool dtype warnings
+        features = features.astype(float)
+
         # Reset all neighborhood columns to 0
         neighborhood_cols = [col for col in features.columns if col.startswith('Neighborhood_')]
         for col in neighborhood_cols:
@@ -216,9 +219,6 @@ class SimplePredictor:
         neighborhood_col = f'Neighborhood_{neighborhood}'
         if neighborhood_col in features.columns:
             features.at[0, neighborhood_col] = 1.0
-
-        # Ensure all columns are numeric
-        features = features.astype(float)
 
         # Make prediction
         pred_log = self.model.predict(features)[0]
