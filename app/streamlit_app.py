@@ -14,7 +14,7 @@ class SimplePredictor:
         # Auto-detect paths based on where the script is running
         if model_path is None:
             base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            model_path = os.path.join(base, 'models', 'ridge_model.pkl')
+            model_path = os.path.join(base, 'models', 'best_model_xgboost.pkl')
         if data_path is None:
             base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             data_path = os.path.join(base, 'data')
@@ -22,7 +22,6 @@ class SimplePredictor:
         self.model_path = model_path
         self.data_path = data_path
         self.model = None
-        self.expected_features = None
         self.X_train = None
         self.y_train = None
         self.train_original = None
@@ -37,91 +36,19 @@ class SimplePredictor:
             if os.path.exists(self.model_path):
                 with open(self.model_path, 'rb') as f:
                     self.model = pickle.load(f)
-                self._load_expected_features()
                 print(f"[OK] Model loaded successfully from {self.model_path}")
             else:
                 # Try relative path for Streamlit Cloud
-                alt_path = 'models/ridge_model.pkl'
+                alt_path = 'models/best_model_xgboost.pkl'
                 if os.path.exists(alt_path):
                     with open(alt_path, 'rb') as f:
                         self.model = pickle.load(f)
                         self.model_path = alt_path
-                    self._load_expected_features()
                     print(f"[OK] Model loaded from {alt_path}")
                 else:
                     print(f"[WARNING] Model not found at {self.model_path}")
         except Exception as e:
             print(f"[ERROR] Error loading model: {str(e)}")
-
-    def _load_expected_features(self):
-        """Load expected feature names from model metadata or feature_names.pkl."""
-        # First preference: features stored directly in sklearn estimator
-        if self.model is not None and hasattr(self.model, 'feature_names_in_'):
-            self.expected_features = list(self.model.feature_names_in_)
-            print(f"[OK] Using model.feature_names_in_ ({len(self.expected_features)} features)")
-            return
-
-        # Fallback: load feature_names.pkl from models folder
-        try:
-            base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            feature_paths = [
-                os.path.join(base, 'models', 'feature_names.pkl'),
-                'models/feature_names.pkl'
-            ]
-            for p in feature_paths:
-                if os.path.exists(p):
-                    with open(p, 'rb') as f:
-                        names = pickle.load(f)
-                    if isinstance(names, (list, tuple)) and len(names) > 0:
-                        self.expected_features = list(names)
-                        print(f"[OK] Loaded expected features from {p} ({len(self.expected_features)} features)")
-                        return
-        except Exception as e:
-            print(f"[WARNING] Failed to load feature_names.pkl: {str(e)}")
-
-    def _align_features_for_model(self, features):
-        """Align input DataFrame columns to model expected features."""
-        if self.expected_features is None or features is None:
-            return features
-
-        aligned = features.copy()
-
-        # Add missing columns as zeros
-        missing_cols = [c for c in self.expected_features if c not in aligned.columns]
-        for c in missing_cols:
-            aligned[c] = 0.0
-
-        # Keep only expected columns and ensure exact order
-        aligned = aligned[self.expected_features]
-
-        # Ensure numeric dtype for sklearn
-        aligned = aligned.astype(float)
-
-        if missing_cols:
-            print(f"[WARNING] Added {len(missing_cols)} missing features (filled with 0).")
-
-        return aligned
-
-    def _target_to_price(self, pred_value):
-        """
-        Convert model output to dollar price.
-        Supports both target styles:
-        - log1p(SalePrice): typically around 10-14
-        - raw SalePrice: typically > 50
-        """
-        pred_value = float(pred_value)
-        if not np.isfinite(pred_value):
-            return 0.0
-
-        # Heuristic: log-price models output small values; raw-price models output large values.
-        if pred_value < 50:
-            price = np.expm1(pred_value)
-        else:
-            price = pred_value
-
-        if not np.isfinite(price) or price < 0:
-            return 0.0
-        return float(price)
 
     def _load_data(self):
         """Load training data - both original (for display) and processed (for prediction)"""
@@ -218,11 +145,10 @@ class SimplePredictor:
         if self.model is not None and self.X_train is not None and idx < len(self.X_train):
             # Get processed features for this house
             features = self.X_train.iloc[[idx]]
-            features = self._align_features_for_model(features)
 
             # Real model prediction
-            pred_target = self.model.predict(features)[0]
-            pred_price = self._target_to_price(pred_target)
+            pred_log = self.model.predict(features)[0]
+            pred_price = np.expm1(pred_log)  # Convert from log back to dollars
 
             print(f"[OK] Real prediction for house {idx}: ${pred_price:,.0f} (actual: ${actual:,.0f})")
 
@@ -230,7 +156,7 @@ class SimplePredictor:
             # Fallback warning
             print(f"[WARNING] Model or processed data unavailable, using fallback")
             pred_price = actual * 1.0  # Use actual as fallback
-            pred_target = np.log1p(pred_price)
+            pred_log = np.log1p(pred_price)
 
         # Generate individual model predictions for visualization
         # (These are approximations - in production we'd save all 4 models)
@@ -242,7 +168,7 @@ class SimplePredictor:
             'GBR': pred_price * (1 + np.random.uniform(-0.02, 0.02))
         }
 
-        return pred_price, individual_preds, pred_target
+        return pred_price, individual_preds, pred_log
 
     def predict_manual(self, living_area, overall_qual, year_built, total_rooms,
                        bedrooms, bathrooms, garage_cars, neighborhood):
@@ -260,7 +186,6 @@ class SimplePredictor:
         # Use this house's processed features as template (deep copy to avoid reference issues)
         features = self.X_train.iloc[[similar_idx]].copy(deep=True)
         features = features.reset_index(drop=True)
-        features = features.astype(float)
 
         # Update with user input (these features are already in processed form in X_train)
         # GrLivArea is log-transformed in X_train_clean
@@ -282,6 +207,9 @@ class SimplePredictor:
             features.at[0, 'GarageCars'] = float(garage_cars)
 
         # Handle neighborhood (one-hot encoded)
+        # Convert all columns to float first to avoid bool dtype warnings
+        features = features.astype(float)
+
         # Reset all neighborhood columns to 0
         neighborhood_cols = [col for col in features.columns if col.startswith('Neighborhood_')]
         for col in neighborhood_cols:
@@ -292,12 +220,9 @@ class SimplePredictor:
         if neighborhood_col in features.columns:
             features.at[0, neighborhood_col] = 1.0
 
-        # Align features to the exact set used during model fit
-        features = self._align_features_for_model(features)
-
         # Make prediction
-        pred_target = self.model.predict(features)[0]
-        pred_price = self._target_to_price(pred_target)
+        pred_log = self.model.predict(features)[0]
+        pred_price = np.expm1(pred_log)
 
         print(f"[OK] Manual prediction: ${pred_price:,.0f} (template idx: {similar_idx})")
 
@@ -310,16 +235,17 @@ class SimplePredictor:
             'GBR': pred_price * (1 + np.random.uniform(-0.02, 0.02))
         }
 
-        return pred_price, individual_preds, pred_target
+        return pred_price, individual_preds, pred_log
 
     @property
     def cv_scores(self):
         """Return CV scores from training"""
         return {
-            'Ridge': 0.10652,
+            'Ridge': 0.11037,
             'Lasso': 0.10894,
             'ElasticNet': 0.10908,
-            'GradientBoosting': 0.11478
+            'Ridge': 0.11037,
+            'Stacking Ensemble': 0.10652
         }
 
 # ==========================================
@@ -544,7 +470,7 @@ if predictor is not None and train_data is not None:
         """, unsafe_allow_html=True)
 
         if not features_loaded or predictor.model is None:
-            st.warning("[WARNING] Real predictions unavailable. Please check that X_train_clean.csv and ridge_model.pkl are present in the data/models folders.")
+            st.warning("[WARNING] Real predictions unavailable. Please check that X_train_clean.csv and model files are present in the data/models folders.")
 
         st.markdown("---")
         st.caption("© 2026 HousePrice AI")
@@ -761,8 +687,8 @@ if predictor is not None and train_data is not None:
                     st.markdown("### Model Confidence Analysis")
                     fig, ax = plt.subplots(figsize=(10, 4))
 
-                    models = ['Ridge (Best)', 'Lasso', 'ElasticNet', 'GBR']
-                    values = [predicted_price, individual_preds['Lasso'], individual_preds['ElasticNet'], individual_preds['GBR']]
+                    models = ['Ridge', 'Lasso', 'ElasticNet', 'GBR', 'Ensemble (Best)']
+                    values = list(individual_preds.values()) + [predicted_price]
 
                     y_pos = np.arange(len(models))
                     bars = ax.barh(y_pos, values, align='center', color='#cbd5e1', height=0.6)
