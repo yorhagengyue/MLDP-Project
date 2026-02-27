@@ -687,7 +687,7 @@ if predictor is not None and train_data is not None:
                     st.markdown("### Model Confidence Analysis")
                     fig, ax = plt.subplots(figsize=(10, 4))
 
-                    models = ['Ridge', 'Lasso', 'ElasticNet', 'GBR', 'Ensemble (Best)']
+                    models = ['GBR', 'ElasticNet', 'Lasso', 'Ensemble', 'Ridge (Best)']
                     values = list(individual_preds.values()) + [predicted_price]
 
                     y_pos = np.arange(len(models))
