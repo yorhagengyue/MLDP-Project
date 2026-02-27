@@ -241,11 +241,10 @@ class SimplePredictor:
     def cv_scores(self):
         """Return CV scores from training"""
         return {
-            'Ridge': 0.11037,
-            'Lasso': 0.10894,
-            'ElasticNet': 0.10908,
-            'Ridge': 0.11037,
-            'Stacking Ensemble': 0.10652
+            'Linear Reg': 0.1245,
+            'Ridge': 0.1147,
+            'Random Forest': 0.1332,
+            'Gradient Boosting': 0.1183,
         }
 
 # ==========================================
@@ -725,9 +724,9 @@ if predictor is not None and train_data is not None:
         with perf_col1:
             st.markdown("#### Performance Metrics")
             metrics_df = pd.DataFrame({
-                'Metric': ['RMSE (Cross-Val)', 'Kaggle Score', 'R² Score', 'CV-Test Gap'],
-                'Value': ['0.1065', '0.1220', '0.920', '1.55%'],
-                'Status': ['Excellent', 'Top 30%', 'High Fit', 'Stable']
+                'Metric': ['RMSE (Cross-Val)', 'R² Score', 'Avg Error ($)', 'CV Stability'],
+                'Value': ['0.1147', '0.917', '~$20,700', '±6.1%'],
+                'Status': ['Best Model', 'High Fit', 'Excellent', 'Stable']
             })
             st.table(metrics_df)
 
