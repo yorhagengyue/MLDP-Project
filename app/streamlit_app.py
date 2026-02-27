@@ -14,7 +14,7 @@ class SimplePredictor:
         # Auto-detect paths based on where the script is running
         if model_path is None:
             base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            model_path = os.path.join(base, 'models', 'best_model_xgboost.pkl')
+            model_path = os.path.join(base, 'models', 'ridge_model.pkl')
         if data_path is None:
             base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             data_path = os.path.join(base, 'data')
@@ -39,7 +39,7 @@ class SimplePredictor:
                 print(f"[OK] Model loaded successfully from {self.model_path}")
             else:
                 # Try relative path for Streamlit Cloud
-                alt_path = 'models/best_model_xgboost.pkl'
+                alt_path = 'models/ridge_model.pkl'
                 if os.path.exists(alt_path):
                     with open(alt_path, 'rb') as f:
                         self.model = pickle.load(f)
@@ -241,11 +241,10 @@ class SimplePredictor:
     def cv_scores(self):
         """Return CV scores from training"""
         return {
-            'Ridge': 0.11037,
+            'Ridge': 0.10652,
             'Lasso': 0.10894,
             'ElasticNet': 0.10908,
-            'GradientBoosting': 0.11478,
-            'Stacking Ensemble': 0.10652
+            'GradientBoosting': 0.11478
         }
 
 # ==========================================
@@ -442,12 +441,12 @@ if predictor is not None and train_data is not None:
     # Sidebar
     with st.sidebar:
         st.markdown("### Control Panel")
-        st.markdown("Select a sample property from the dataset to generate a real-time valuation prediction using our trained Gradient Boosting model.")
+        st.markdown("Select a sample property from the dataset to generate a real-time valuation prediction using our trained Ridge model.")
 
         st.markdown("---")
         st.markdown("### System Status")
 
-        model_status = "Active (Gradient Boosting)" if predictor.model is not None else "Unavailable"
+        model_status = "Active (Ridge)" if predictor.model is not None else "Unavailable"
         model_color = "#10b981" if predictor.model is not None else "#ef4444"
 
         features_loaded = predictor.X_train is not None
@@ -470,7 +469,7 @@ if predictor is not None and train_data is not None:
         """, unsafe_allow_html=True)
 
         if not features_loaded or predictor.model is None:
-            st.warning("[WARNING] Real predictions unavailable. Please check that X_train_clean.csv and best_model_xgboost.pkl are present in the data/models folders.")
+            st.warning("[WARNING] Real predictions unavailable. Please check that X_train_clean.csv and ridge_model.pkl are present in the data/models folders.")
 
         st.markdown("---")
         st.caption("© 2026 HousePrice AI")
@@ -687,8 +686,8 @@ if predictor is not None and train_data is not None:
                     st.markdown("### Model Confidence Analysis")
                     fig, ax = plt.subplots(figsize=(10, 4))
 
-                    models = ['Ridge', 'Lasso', 'ElasticNet', 'GBR', 'Ensemble (Best)']
-                    values = list(individual_preds.values()) + [predicted_price]
+                    models = ['Ridge (Best)', 'Lasso', 'ElasticNet', 'GBR']
+                    values = [predicted_price, individual_preds['Lasso'], individual_preds['ElasticNet'], individual_preds['GBR']]
 
                     y_pos = np.arange(len(models))
                     bars = ax.barh(y_pos, values, align='center', color='#cbd5e1', height=0.6)
